@@ -1,5 +1,9 @@
 # CiniGo
-<img width="220" height="220" alt="image" src="https://github.com/user-attachments/assets/7940b77b-b824-4e75-9dd3-81f4e08e3310" />
+<p align="center">
+  <img src="docs/img/logo.png" alt="CliniGo" width="120">
+</p>
+
+<h1 align="center">CliniGo</h1>
 
 Sistema de gestão ambulatorial para clínicas de pequeno porte. Projeto de portfólio que simula uma arquitetura real de empresa.
 
