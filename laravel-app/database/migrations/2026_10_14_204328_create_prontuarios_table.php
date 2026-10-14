@@ -13,13 +13,9 @@ return new class extends Migration
     {
        Schema::create('prontuarios', function (Blueprint $table) {
         $table->id();
-
-        $table->foreignId('consulta_id')->nullable()->constrained('consultas')->restrictOnDelete();
-        $table->foreignId('paciente_id')->constrained('pacientes')->restrictOnDelete();
+        $table->foreignId('consulta_id')->unique()->constrained('consultas')->restrictOnDelete();        $table->foreignId('paciente_id')->constrained('pacientes')->restrictOnDelete();
         $table->foreignId('medico_id')->constrained('medicos')->restrictOnDelete() ;
-
         $table->text('anotacoes');
-
         $table->timestamps();
         });
     }
