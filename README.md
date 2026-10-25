@@ -215,8 +215,8 @@ erDiagram
 - [x] Base Laravel + MySQL
 - [x] Migrations de todas as tabelas
 - [x] Models e relacionamentos (Eloquent)
-- [ ] Factories e seeders
-- [ ] Autenticação por token (Sanctum) e permissões por papel
+- [x] Factories e seeders
+- [x] Autenticação por token (Sanctum) e permissões por papel
 - [ ] API REST do Laravel: pacientes, médicos, especialidades, prontuários
 - [ ] Documentação da API
 - [ ] Serviço Java: agendamento com validação de conflito
