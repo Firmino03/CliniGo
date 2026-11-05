@@ -10,5 +10,6 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', fn (Request $request) => $request->user());
+        Route::apiResource('pacientes', PacienteController::class);
     });
 });

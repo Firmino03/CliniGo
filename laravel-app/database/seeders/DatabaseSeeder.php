@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use App\Models\Medico;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,5 +20,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Paciente::factory()->count(30)->create();
+        Medico::factory()->count(10)->create();
     }
 }

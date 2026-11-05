@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class PacienteFactory extends Factory
 {
+    
     /**
      * Define the model's default state.
      *
