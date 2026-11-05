@@ -11,26 +11,20 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        $dados = $request->validate([
+        $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
 
-        $user = User::where('email', $dados['email'])->first();
+        $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($dados['password'], $user->password)) {
-            return response()->json(['message' => 'Credenciais inválidas.'], 401);
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Credenciais inválidas'], 401);
         }
 
-        $token = $user->createToken('api')->plainTextToken;
-
         return response()->json([
-            'token' => $token,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'role' => $user->role,
-            ],
+            'token' => $user->createToken('api')->plainTextToken,
+            'user' => $user,
         ]);
     }
 
@@ -38,7 +32,6 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->noContent();
+        return response()->json(['message' => 'Logout realizado']);
     }
-
 }
