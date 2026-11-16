@@ -3,48 +3,58 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePacienteRequest;
+use App\Http\Requests\UpdatePacienteRequest;
+use App\Http\Resources\PacienteResource;
 use App\Models\Paciente;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 
 class PacienteController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request): AnonymousResourceCollection
     {
-        //
+        $pacientes = Paciente::query()
+            ->when($request->query('busca'), fn ($q, $busca) => $q->where('nome', 'like', "%{$busca}%"))
+            ->orderBy('nome')
+            ->paginate(15);
+
+        return PacienteResource::collection($pacientes);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StorePacienteRequest $request): JsonResponse
     {
-        //
+        $paciente = Paciente::create($request->validated());
+
+        return PacienteResource::make($paciente)
+            ->response()
+            ->setStatusCode(201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Paciente $paciente)
+    public function show(Paciente $paciente): PacienteResource
     {
-        //
+        return new PacienteResource($paciente);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Paciente $paciente)
+    public function update(UpdatePacienteRequest $request, Paciente $paciente): PacienteResource
     {
-        //
+        $paciente->update($request->validated());
+
+        return new PacienteResource($paciente);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Paciente $paciente)
+    public function destroy(Paciente $paciente): JsonResponse|Response
     {
-        //
+        if ($paciente->consultas()->exists() || $paciente->prontuarios()->exists()) {
+            return response()->json([
+                'message' => 'Não é possível excluir um paciente com consultas ou prontuários.',
+            ], 409);
+        }
+
+        $paciente->delete();
+
+        return response()->noContent();
     }
 }
