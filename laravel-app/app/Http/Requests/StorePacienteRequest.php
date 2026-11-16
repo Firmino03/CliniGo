@@ -7,23 +7,18 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StorePacienteRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
+        public function authorize(): bool
     {
-        return false;
+        return true; // as permissões por perfil entram depois, com Policies
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'nome'            => ['required', 'string', 'max:255'],
+            'cpf'             => ['nullable', 'string', 'size:11', 'regex:/^\d{11}$/', 'unique:pacientes,cpf'],
+            'data_nascimento' => ['required', 'date', 'before:today'],
+            'telefone'        => ['required', 'string', 'max:15'],
         ];
     }
 }

@@ -14,6 +14,13 @@ class PacienteResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id'              => $this->id,
+            'nome'            => $this->nome,
+            'cpf'             => $this->cpf,
+            'data_nascimento' => $this->data_nascimento?->format('Y-m-d'),
+            'telefone'        => $this->telefone,
+            'created_at'      => $this->created_at?->toISOString(),
+        ];
     }
 }

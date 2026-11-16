@@ -2,28 +2,25 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Validation\Rule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePacienteRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
+        public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'nome'            => ['sometimes', 'required', 'string', 'max:255'],
+            'cpf'             => ['nullable', 'string', 'size:11', 'regex:/^\d{11}$/',
+                 Rule::unique('pacientes', 'cpf')->ignore($this->route('paciente'))],
+            'data_nascimento' => ['sometimes', 'required', 'date', 'before:today'],
+            'telefone'        => ['sometimes', 'required', 'string', 'max:15'],
         ];
     }
 }
