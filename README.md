@@ -4,12 +4,6 @@
 
 <h1 align="center">CliniGo</h1>
 
-<p align="center">
-  <img src="docs/img/logo.png" alt="CliniGo" width="120">
-</p>
-
-<h1 align="center">CliniGo</h1>
-
 Sistema de gestão ambulatorial para clínicas de pequeno porte. Projeto de portfólio que simula uma arquitetura real de empresa: uma **API REST em Laravel** integrada a um **serviço Java independente**.
 
 ## O que faz
