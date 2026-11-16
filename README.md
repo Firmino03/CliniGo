@@ -4,343 +4,161 @@
 
 <h1 align="center">CliniGo</h1>
 
-<p align="center">
-  <img src="docs/img/logo.png" alt="CliniGo" width="120">
-</p>
-
-<h1 align="center">CliniGo</h1>
-
-Sistema de gestão ambulatorial para clínicas de pequeno porte. Projeto de portfólio que simula uma arquitetura real de empresa: uma **API REST em Laravel** integrada a um **serviço Java independente**.
-
-## O que faz
-
-- Autenticação por token, com papéis: admin, recepção e médico
-- Cadastro de pacientes, médicos e especialidades
-- Prontuário por consulta, com acesso restrito ao médico responsável
-- **API REST versionada e documentada (Laravel)**
-- **Agendamento de consultas com validação de conflito de horário (serviço Java)**
-- **Consulta de horários livres por médico (serviço Java)**
-- **Relatórios em PDF (serviço Java)**
-
-## Stack
-
-| Camada | Tecnologia |
+##  Sobre o projeto
+ 
+O ClinicGo organiza o fluxo de uma clínica em uma API versionada (`/api/v1`). Ele cobre o cadastro de pacientes e médicos, o agendamento de consultas, o registro de prontuários e a geração de relatórios em PDF, com acesso protegido por autenticação.
+ 
+##  Status
+ 
+| Item | Situação |
 |---|---|
-| API REST, autenticação e cadastros | Laravel (PHP) + Sanctum |
-| Serviço de agenda e relatórios | Java puro + JDBC + OpenPDF |
-| Banco de dados | MySQL |
-| Infra | Docker Compose (planejado) |
-
-## Arquitetura
-
-```mermaid
-flowchart LR
-    C["Cliente<br/>(frontend, Postman, curl)"] -->|"API REST /api/v1<br/>Bearer token"| L["Laravel<br/>auth, cadastros, prontuário"]
-    L -->|"HTTP/JSON interno<br/>token de serviço"| J["Java<br/>agenda, conflito de horário, PDF"]
-    L --> DB[(MySQL)]
-    J --> DB
+| Versão atual | **v0.3.0** — autenticação e segurança da API |
+| Autenticação (login/logout com Sanctum) | ✅ Concluído |
+| Models, migrations, factories e seeders | ✅ Concluído |
+| CRUD de pacientes | ✅ Concluído |
+| Mensagens em português (pt-BR) | ✅ Concluído |
+| Demais CRUDs, autorização por perfil e relatórios | 🔜 Em andamento (veja o [Roadmap](#-roadmap)) |
+ 
+## 🛠️ Tecnologias
+ 
+- **PHP** e **Laravel**
+- **MySQL**
+- **Laravel Sanctum** (autenticação por token)
+- **Composer**
+- **Git/GitHub** com Conventional Commits e SemVer
+##  Arquitetura
+ 
+A API segue o padrão MVC do Laravel, com camadas separadas para validação e resposta:
+ 
 ```
-
-Existem **duas APIs REST**, com papéis diferentes:
-
-| | API do Laravel | API do Java |
-|---|---|---|
-| Exposição | Pública (para clientes) | Interna (só o Laravel acessa) |
-| Autenticação | Token do usuário (Sanctum) | Token de serviço compartilhado |
-| Responsabilidade | Autenticação, permissões por papel, CRUDs, prontuário | Agendamento, regra de conflito, horários livres, PDFs |
-| Tabelas que escreve | `users`, `pacientes`, `medicos`, `especialidades`, `prontuarios` | `consultas`, `relatorios_pdf` |
-
-O cliente conversa **somente com o Laravel**. Quando o pedido envolve agenda ou PDF, o Laravel valida o usuário e o papel dele e repassa a chamada ao serviço Java.
-
-## API REST
-
-> **Status:** em desenvolvimento. O contrato abaixo é o planejado e será ajustado conforme a implementação.
-
-### Por que uma API REST
-
-A API é o contrato entre o backend e qualquer cliente. Com ela, o mesmo backend atende um frontend web, um app ou um teste via `curl`, sem mudar nada no servidor. Cada recurso (paciente, consulta, prontuário) tem uma URL própria, e o verbo HTTP diz a ação: `GET` lê, `POST` cria, `PUT` atualiza, `DELETE` remove. O servidor não guarda sessão: cada requisição carrega seu próprio token.
-
-### Convenções
-
-- **Versionamento:** todas as rotas começam com `/api/v1`, para evoluir o contrato sem quebrar clientes antigos.
-- **Autenticação:** `Authorization: Bearer <token>`, obtido em `POST /api/v1/login` (Laravel Sanctum).
-- **Autorização:** Policies do Laravel aplicam as regras por papel. Exemplo: o médico só acessa prontuários e pacientes que atendeu.
-- **Validação:** Form Requests validam a entrada, inclusive o dígito verificador do CPF.
-- **Saída:** API Resources controlam o JSON devolvido, sem expor colunas desnecessárias.
-
-### Códigos de resposta
-
-| Código | Significado |
-|---|---|
-| 200 / 201 | Sucesso / recurso criado |
-| 401 | Não autenticado (token ausente ou inválido) |
-| 403 | Autenticado, mas sem permissão para o recurso |
-| 404 | Recurso não encontrado |
-| 409 | Conflito (ex.: horário já ocupado) |
-| 422 | Dados inválidos (erros de validação) |
-
-### Endpoints planejados
-
-| Método | Rota | Descrição | Papéis |
-|---|---|---|---|
-| POST | `/api/v1/login` | Gera o token de acesso | Público |
-| POST | `/api/v1/logout` | Revoga o token atual | Autenticado |
-| GET, POST | `/api/v1/pacientes` | Lista e cadastra pacientes | Admin, recepção |
-| GET, PUT | `/api/v1/pacientes/{id}` | Consulta e atualiza um paciente | Admin, recepção |
-| GET | `/api/v1/medicos` | Lista médicos | Autenticado |
-| GET | `/api/v1/especialidades` | Lista especialidades | Autenticado |
-| GET | `/api/v1/medicos/{id}/horarios-livres` | Horários livres do médico *(Java)* | Admin, recepção |
-| POST | `/api/v1/consultas` | Agenda uma consulta *(Java)* | Admin, recepção |
-| PATCH | `/api/v1/consultas/{id}/status` | Cancela, realiza ou marca falta *(Java)* | Admin, recepção, médico |
-| GET, POST | `/api/v1/prontuarios` | Lista e cria prontuários | Médico responsável |
-| POST | `/api/v1/relatorios/consultas` | Gera relatório em PDF *(Java)* | Admin |
-
-### Exemplo: agendar uma consulta
-
-Requisição:
-
-```http
-POST /api/v1/consultas
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "paciente_id": 12,
-  "medico_id": 3,
-  "inicio": "2026-11-10 09:00:00",
-  "fim": "2026-11-10 09:30:00"
-}
+laravel-app/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/Api/   # AuthController, PacienteController...
+│   │   ├── Requests/          # Store/Update...Request (validação)
+│   │   └── Resources/         # PacienteResource (formato da resposta)
+│   └── Models/                # User, Paciente, Medico, Especialidade,
+│                              # Consulta, Prontuario, RelatorioPdf
+├── database/
+│   ├── migrations/
+│   ├── factories/
+│   └── seeders/
+├── lang/pt_BR/                # traduções (auth, validation, passwords...)
+└── routes/api.php             # rotas da API v1
 ```
-
-Resposta de sucesso (`201`):
-
-```json
-{
-  "data": {
-    "id": 87,
-    "paciente_id": 12,
-    "medico_id": 3,
-    "inicio": "2026-11-10 09:00:00",
-    "fim": "2026-11-10 09:30:00",
-    "status": "agendada"
-  }
-}
-```
-
-Resposta quando o horário já está ocupado (`409`):
-
-```json
-{
-  "message": "O médico já possui uma consulta neste horário."
-}
-```
-
-### Fluxo de uma chamada
-
-1. O cliente envia a requisição ao Laravel com o token do usuário.
-2. O Laravel autentica o token e checa se o papel do usuário permite a ação.
-3. Para agenda e PDF, o Laravel repassa a chamada ao Java por HTTP, com um token de serviço.
-4. O Java valida o conflito de horário dentro de uma transação, grava em `consultas` e responde.
-5. O Laravel devolve a resposta ao cliente.
-
-## Decisões de arquitetura
-
-- **Schema versionado só no Laravel.** As migrations criam todas as tabelas, inclusive `consultas`. O Java usa o schema, não o altera.
-- **Banco compartilhado.** Simplifica o projeto, mas acopla os serviços (`consultas` tem chaves estrangeiras para tabelas do Laravel). Em produção real, cada serviço teria seu próprio banco.
-- **Conflito de horário tratado no Java**, dentro de uma transação com bloqueio, para evitar dois agendamentos simultâneos no mesmo horário.
-- **Um único ponto de entrada.** O Java não é exposto: toda autenticação e autorização acontece no Laravel.
-
-## Diagrama de classes (domínio)
-
-Visão orientada a objetos do domínio. Cada classe é um model Eloquent em `laravel-app/app/Models`. As chaves estrangeiras (`paciente_id`, `medico_id` etc.) não aparecem como atributos: elas viram as **associações** entre as classes, com a multiplicidade em cada ponta. Os métodos listados são os de relacionamento que existem no código.
-
-```mermaid
-classDiagram
-    direction LR
-
-    class User {
-        +int id
-        +string name
-        +string email
-        -string password
-        +Role role
-        +medico() Medico
-        +relatoriosPdf() Collection~RelatorioPdf~
-    }
-    class Especialidade {
-        +int id
-        +string nome
-        +medicos() Collection~Medico~
-    }
-    class Medico {
-        +int id
-        +string crm
-        +especialidade() Especialidade
-    }
-    class Paciente {
-        +int id
-        +string nome
-        +string cpf
-        +date data_nascimento
-        +string telefone
-        +consultas() Collection~Consulta~
-        +prontuarios() Collection~Prontuario~
-    }
-    class Consulta {
-        +int id
-        +datetime inicio
-        +datetime fim
-        +StatusConsulta status
-        +paciente() Paciente
-        +medico() Medico
-        +prontuario() Prontuario
-    }
-    class Prontuario {
-        +int id
-        +text anotacoes
-        +consulta() Consulta
-        +paciente() Paciente
-        +medico() Medico
-    }
-    class RelatorioPdf {
-        +int id
-        +string tipo
-        +json filtros
-        +string arquivo_path
-        +datetime gerado_em
-        +user() User
-    }
-    class Role {
-        <<enumeration>>
-        admin
-        recepcao
-        medico
-    }
-    class StatusConsulta {
-        <<enumeration>>
-        agendada
-        realizada
-        cancelada
-        faltou
-    }
-
-    User "1" -- "0..1" Medico : pode ser
-    Especialidade "1" -- "0..*" Medico : possui
-    Paciente "1" -- "0..*" Consulta : agenda
-    Medico "1" -- "0..*" Consulta : atende
-    Consulta "1" -- "0..1" Prontuario : gera
-    Paciente "1" -- "0..*" Prontuario : possui
-    Medico "1" -- "0..*" Prontuario : escreve
-    User "1" -- "0..*" RelatorioPdf : solicita
-    User ..> Role
-    Consulta ..> StatusConsulta
-```
-
-Como ler o diagrama:
-
-- Um **Paciente** pode ter várias **Consultas**, e cada **Consulta** é de um só paciente e um só médico.
-- Cada **Consulta** gera no máximo um **Prontuario** (por isso `0..1`). O prontuário também guarda o paciente e o médico da consulta.
-- **Medico** não tem nome nem e-mail: esses dados ficam no **User** ligado a ele (`0..1`, porque nem todo usuário é médico).
-- `Role` e `StatusConsulta` são colunas `enum` no banco. Estão desenhadas como enumeração só para facilitar a leitura.
-
-## Diagrama do banco
-
+ 
+### Modelo de dados (simplificado)
+ 
 ```mermaid
 erDiagram
-    USERS ||--o| MEDICOS : "pode ser"
-    ESPECIALIDADES ||--o{ MEDICOS : "possui"
-    PACIENTES ||--o{ CONSULTAS : "agenda"
-    MEDICOS ||--o{ CONSULTAS : "atende"
-    CONSULTAS ||--o| PRONTUARIOS : "gera"
-    MEDICOS ||--o{ PRONTUARIOS : "escreve"
-    PACIENTES ||--o{ PRONTUARIOS : "possui"
-    USERS ||--o{ RELATORIOS_PDF : "solicita"
-
-    USERS {
-        bigint id PK
-        string name
-        string email UK
-        string password
-        enum role "admin|recepcao|medico"
-        timestamps created_updated
-    }
-    ESPECIALIDADES {
-        bigint id PK
-        string nome UK
-    }
-    MEDICOS {
-        bigint id PK
-        bigint user_id FK
-        bigint especialidade_id FK
-        string crm UK
-    }
-    PACIENTES {
-        bigint id PK
-        string nome
-        string cpf UK
-        date data_nascimento
-        string telefone
-        timestamps created_updated
-    }
-    CONSULTAS {
-        bigint id PK
-        bigint paciente_id FK
-        bigint medico_id FK
-        datetime inicio
-        datetime fim
-        enum status "agendada|realizada|cancelada|faltou"
-        timestamps created_updated
-    }
-    PRONTUARIOS {
-        bigint id PK
-        bigint consulta_id FK
-        bigint paciente_id FK
-        bigint medico_id FK
-        text anotacoes
-        timestamps created_updated
-    }
-    RELATORIOS_PDF {
-        bigint id PK
-        bigint user_id FK
-        string tipo
-        json filtros
-        string arquivo_path
-        datetime gerado_em
-    }
+    USER ||--o| MEDICO : "possui"
+    USER ||--o{ RELATORIO_PDF : "gera"
+    ESPECIALIDADE ||--o{ MEDICO : "classifica"
+    PACIENTE ||--o{ CONSULTA : "agenda"
+    MEDICO ||--o{ CONSULTA : "atende"
+    CONSULTA ||--o| PRONTUARIO : "registra"
 ```
-
-## Factories e seeders (criação de objetos)
-
-Factories e seeders são o jeito do projeto de criar vários objetos de uma vez. A factory define como é **um** objeto com dados falsos (Faker). O seeder decide **quantos** objetos criar e em que ordem.
-
-| Classe | Papel | O que cria |
-|---|---|---|
-| `PacienteFactory` | Factory | 1 `Paciente` com nome, CPF válido, data de nascimento e telefone |
-| `UserFactory` | Factory | 1 `User` com nome, e-mail e senha (`password`) |
-| `MedicoFactory` | Factory | 1 `Medico` com CRM e uma especialidade sorteada. Cria também o `User` dele, com `role = medico` |
-| `EspecialidadeSeeder` | Seeder | As 6 especialidades fixas (Clínica Geral, Cardiologia, Dermatologia, Pediatria, Ortopedia e Ginecologia) |
-| `DatabaseSeeder` | Seeder | Chama o `EspecialidadeSeeder`, cria o admin (`admin@clinigo.test`), **30 pacientes** e **10 médicos** |
-
-A ordem importa: o `MedicoFactory` sorteia uma especialidade que já existe, então o `EspecialidadeSeeder` precisa rodar antes. O `DatabaseSeeder` já faz isso.
-
+ 
+> Diagrama simplificado. Ajuste os relacionamentos conforme as migrations do projeto.
+ 
+##  Autenticação e segurança
+ 
+A API usa **Laravel Sanctum**: o usuário faz login, recebe um token e envia esse token nas rotas protegidas.
+ 
+1. Faça login em `POST /api/v1/login` com e-mail e senha.
+2. Guarde o token retornado.
+3. Envie o token no header das requisições protegidas:
+```http
+Authorization: Bearer {seu_token}
+Accept: application/json
+```
+ 
+4. Para sair, use `POST /api/v1/logout`. O token deixa de funcionar.
+Rotas protegidas usam o middleware `auth:sanctum`. Sem token válido, a API responde `401 Unauthorized`.
+ 
+> Confira os caminhos exatos das rotas com `php artisan route:list`.
+ 
+##  Como executar
+ 
+**Pré-requisitos:** PHP 8+, Composer e MySQL.
+ 
 ```bash
-php artisan migrate:fresh --seed
+# 1. Clonar o repositório
+git clone https://github.com/Firmino03/CliniGo.git
+cd CliniGo/laravel-app
+ 
+# 2. Instalar dependências
+composer install
+ 
+# 3. Configurar o ambiente
+cp .env.example .env
+php artisan key:generate
+# edite o .env com os dados do seu banco MySQL
+ 
+# 4. Criar tabelas e dados iniciais (inclui usuário admin e especialidades)
+php artisan migrate --seed
+ 
+# 5. Iniciar o servidor
+php artisan serve
 ```
+ 
+A API fica disponível em `http://localhost:8000/api/v1`.
+ 
+##  Testes
+ 
+```bash
+php artisan test
+```
+ 
 
-## Status
-
-- [x] Base Laravel + MySQL
-- [x] Migrations de todas as tabelas
-- [x] Models e relacionamentos (Eloquent)
-- [x] Factories e seeders
-- [x] Autenticação por token (Sanctum) e permissões por papel
-- [ ] API REST do Laravel: pacientes, médicos, especialidades, prontuários
-- [ ] Documentação da API
-- [ ] Serviço Java: agendamento com validação de conflito
-- [ ] Serviço Java: relatórios em PDF
-- [ ] Integração Laravel → Java
-- [ ] Docker Compose
-
-## Aviso
-
+##  Roadmap
+ 
+- [x] Models, migrations, factories e seeders
+- [x] Autenticação com Sanctum (login e logout)
+- [x] CRUD de pacientes
+- [x] Traduções em pt-BR
+- [ ] Autorização por perfil (admin, médico, paciente) com Policies
+- [ ] CRUDs de médicos, especialidades, consultas e prontuários
+- [ ] Regras de agendamento (sem conflito de horário, data futura, status da consulta)
+- [ ] Relatórios em PDF
+- [ ] Rate limiting no login, CORS e tratamento padronizado de erros
+- [ ] Testes automatizados (Feature tests)
+- [ ] Documentação da API (Scribe ou Swagger)
+- [ ] Front-end consumindo a API
+##  POO aplicada ao projeto
+ 
+O ClinicGo também serve como laboratório de **Programação Orientada a Objetos**, com base no curso [POO com Java 25 LTS](https://github.com/adrianohmf/POO-com-Java-25LTS). Os conceitos são aplicados em PHP/Laravel e, futuramente, em um serviço Java para relatórios.
+ 
+| Conceito | Aplicação no ClinicGo |
+|---|---|
+| **Classes e objetos** | `Paciente`, `Medico` e `Consulta` modelam o domínio. Factories e seeders criam vários objetos. |
+| **Atributos e métodos** | Métodos como `cancelar()` na consulta e constantes para os status. |
+| **Construtores** | *Constructor promotion* em DTOs e Services (PHP); `records` para DTOs no serviço Java. |
+| **Encapsulamento** | `$fillable` e `$hidden` nos models, *accessors/mutators* e visibilidade `private`/`protected` nas Services. |
+| **Herança** | Comparação entre composição (`User` com `Medico`) e herança (`Usuario` → `Medico`, `Paciente`). |
+| **Polimorfismo** | Notificações (e-mail, SMS, WhatsApp) com a mesma chamada e implementações diferentes. |
+| **Classes abstratas e interfaces** | `RelatorioGenerator` com `PdfRelatorio` e `CsvRelatorio`; `ConsultaRepositoryInterface`. |
+| **Coleções (ArrayList)** | `Collection` do Laravel para filtrar e ordenar a agenda. |
+| **HashSet e HashMap** | Horários ocupados sem repetição e agrupamento de consultas por especialidade nos relatórios. |
+ 
+### Ideia futura: serviço de relatórios em Java
+ 
+Um microsserviço **Spring Boot** (`relatorios-service`) que consome a API com o token do Sanctum e gera os PDFs, usando interfaces e polimorfismo:
+ 
+```java
+public interface RelatorioGenerator {
+    byte[] gerar(List<Consulta> consultas);
+}
+ 
+public class PdfRelatorio implements RelatorioGenerator { /* ... */ }
+public class CsvRelatorio implements RelatorioGenerator { /* ... */ }
+```
+ ## Aviso
+ 
 Todos os dados são fictícios (Faker). Este é um MVP de estudo e não deve ser usado com dados reais de pacientes. Dados pessoais e de saúde são sensíveis pela LGPD: num sistema real, esses campos teriam criptografia e controle de acesso rigoroso.
+
+##  Autora
+ 
+**Karolayne Firmino**
+[LinkedIn](https://www.linkedin.com/in/karolayne-firmino) · [GitHub](https://github.com/Firmino03)
+ 
