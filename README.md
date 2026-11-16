@@ -172,19 +172,21 @@ flowchart TB
 - **Relacionamentos inversos ausentes:** os models `Medico` (`user()`, `consultas()`, `prontuarios()`) ainda não declaram esses métodos, apesar de o banco já permitir.
 
 ##  Roadmap
- 
+
 - [x] Models, migrations, factories e seeders
 - [x] Autenticação com Sanctum (login e logout)
 - [x] CRUD de pacientes
 - [x] Traduções em pt-BR
-- [ ] Autorização por perfil (admin, médico, paciente) com Policies
+- [x] Testes automatizados de autenticação e pacientes
+- [ ] Autorização por perfil (admin, recepção, médico) com Policies
 - [ ] CRUDs de médicos, especialidades, consultas e prontuários
 - [ ] Regras de agendamento (sem conflito de horário, data futura, status da consulta)
 - [ ] Relatórios em PDF
 - [ ] Rate limiting no login, CORS e tratamento padronizado de erros
-- [ ] Testes automatizados (Feature tests)
+- [ ] Testes automatizados dos demais recursos
 - [ ] Documentação da API (Scribe ou Swagger)
 - [ ] Front-end consumindo a API
+
 ##  POO aplicada ao projeto
  
 O ClinicGo também serve como laboratório de **Programação Orientada a Objetos**, com base no curso [POO com Java 25 LTS](https://github.com/adrianohmf/POO-com-Java-25LTS). Os conceitos são aplicados em PHP/Laravel e, futuramente, em um serviço Java para relatórios.
