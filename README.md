@@ -4,6 +4,12 @@
 
 <h1 align="center">CliniGo</h1>
 
+<p align="center">
+  <img src="docs/img/logo.png" alt="CliniGo" width="120">
+</p>
+
+<h1 align="center">CliniGo</h1>
+
 Sistema de gestão ambulatorial para clínicas de pequeno porte. Projeto de portfólio que simula uma arquitetura real de empresa: uma **API REST em Laravel** integrada a um **serviço Java independente**.
 
 ## O que faz
@@ -144,6 +150,99 @@ Resposta quando o horário já está ocupado (`409`):
 - **Conflito de horário tratado no Java**, dentro de uma transação com bloqueio, para evitar dois agendamentos simultâneos no mesmo horário.
 - **Um único ponto de entrada.** O Java não é exposto: toda autenticação e autorização acontece no Laravel.
 
+## Diagrama de classes (domínio)
+
+Visão orientada a objetos do domínio. Cada classe é um model Eloquent em `laravel-app/app/Models`. As chaves estrangeiras (`paciente_id`, `medico_id` etc.) não aparecem como atributos: elas viram as **associações** entre as classes, com a multiplicidade em cada ponta. Os métodos listados são os de relacionamento que existem no código.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class User {
+        +int id
+        +string name
+        +string email
+        -string password
+        +Role role
+        +medico() Medico
+        +relatoriosPdf() Collection~RelatorioPdf~
+    }
+    class Especialidade {
+        +int id
+        +string nome
+        +medicos() Collection~Medico~
+    }
+    class Medico {
+        +int id
+        +string crm
+        +especialidade() Especialidade
+    }
+    class Paciente {
+        +int id
+        +string nome
+        +string cpf
+        +date data_nascimento
+        +string telefone
+        +consultas() Collection~Consulta~
+        +prontuarios() Collection~Prontuario~
+    }
+    class Consulta {
+        +int id
+        +datetime inicio
+        +datetime fim
+        +StatusConsulta status
+        +paciente() Paciente
+        +medico() Medico
+        +prontuario() Prontuario
+    }
+    class Prontuario {
+        +int id
+        +text anotacoes
+        +consulta() Consulta
+        +paciente() Paciente
+        +medico() Medico
+    }
+    class RelatorioPdf {
+        +int id
+        +string tipo
+        +json filtros
+        +string arquivo_path
+        +datetime gerado_em
+        +user() User
+    }
+    class Role {
+        <<enumeration>>
+        admin
+        recepcao
+        medico
+    }
+    class StatusConsulta {
+        <<enumeration>>
+        agendada
+        realizada
+        cancelada
+        faltou
+    }
+
+    User "1" -- "0..1" Medico : pode ser
+    Especialidade "1" -- "0..*" Medico : possui
+    Paciente "1" -- "0..*" Consulta : agenda
+    Medico "1" -- "0..*" Consulta : atende
+    Consulta "1" -- "0..1" Prontuario : gera
+    Paciente "1" -- "0..*" Prontuario : possui
+    Medico "1" -- "0..*" Prontuario : escreve
+    User "1" -- "0..*" RelatorioPdf : solicita
+    User ..> Role
+    Consulta ..> StatusConsulta
+```
+
+Como ler o diagrama:
+
+- Um **Paciente** pode ter várias **Consultas**, e cada **Consulta** é de um só paciente e um só médico.
+- Cada **Consulta** gera no máximo um **Prontuario** (por isso `0..1`). O prontuário também guarda o paciente e o médico da consulta.
+- **Medico** não tem nome nem e-mail: esses dados ficam no **User** ligado a ele (`0..1`, porque nem todo usuário é médico).
+- `Role` e `StatusConsulta` são colunas `enum` no banco. Estão desenhadas como enumeração só para facilitar a leitura.
+
 ## Diagrama do banco
 
 ```mermaid
@@ -208,6 +307,24 @@ erDiagram
         string arquivo_path
         datetime gerado_em
     }
+```
+
+## Factories e seeders (criação de objetos)
+
+Factories e seeders são o jeito do projeto de criar vários objetos de uma vez. A factory define como é **um** objeto com dados falsos (Faker). O seeder decide **quantos** objetos criar e em que ordem.
+
+| Classe | Papel | O que cria |
+|---|---|---|
+| `PacienteFactory` | Factory | 1 `Paciente` com nome, CPF válido, data de nascimento e telefone |
+| `UserFactory` | Factory | 1 `User` com nome, e-mail e senha (`password`) |
+| `MedicoFactory` | Factory | 1 `Medico` com CRM e uma especialidade sorteada. Cria também o `User` dele, com `role = medico` |
+| `EspecialidadeSeeder` | Seeder | As 6 especialidades fixas (Clínica Geral, Cardiologia, Dermatologia, Pediatria, Ortopedia e Ginecologia) |
+| `DatabaseSeeder` | Seeder | Chama o `EspecialidadeSeeder`, cria o admin (`admin@clinigo.test`), **30 pacientes** e **10 médicos** |
+
+A ordem importa: o `MedicoFactory` sorteia uma especialidade que já existe, então o `EspecialidadeSeeder` precisa rodar antes. O `DatabaseSeeder` já faz isso.
+
+```bash
+php artisan migrate:fresh --seed
 ```
 
 ## Status
